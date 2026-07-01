@@ -1,7 +1,7 @@
-# Book Finder MCP Server
+# Spring AI Personal MCP Server
 
-A **Spring AI** MCP (Model Context Protocol) server that 
-exposes personal usage tools.
+A **Spring AI** MCP (Model Context Protocol) server that exposes personal tools for
+finding PDF books on your local filesystem.
 
 Works on **macOS**, **Linux**, and **Windows** — accepts all native path formats.
 
@@ -9,12 +9,14 @@ Works on **macOS**, **Linux**, and **Windows** — accepts all native path forma
 
 | Tool | Description |
 |---|---|
-| `find_books_by_topic` | Fast search — checks file names |
-| `list_all_books` | Inventory of all book files without a topic filter |
+| `find_books_by_topic` | Fast search — checks PDF file names only |
+| `list_all_books` | Inventory of all PDF files without a topic filter |
+| `find_books_deep` | Deep search — reads PDF text (up to 5 pages per file) plus file names |
 
+### Supported file format
 
-### Supported file formats
-`pdf`,  `txt`, `md`, `epub`, `docx`, `doc`, `rtf`, `odt`
+`pdf`
+
 ---
 
 ## Prerequisites
@@ -23,7 +25,7 @@ Works on **macOS**, **Linux**, and **Windows** — accepts all native path forma
 |---|---|
 | Java | 21+ |
 | Maven | 3.9+ |
- 
+
 ---
 
 ## Build
@@ -32,20 +34,42 @@ Works on **macOS**, **Linux**, and **Windows** — accepts all native path forma
 mvn clean package -DskipTests
 ```
 
-This produces `target/xxx.jar`.
- 
+This produces `target/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar`.
+
 ---
 
 ## Run (standalone)
 
 ```bash
-java -jar target/xxx.jar
+java -jar target/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar
 ```
 
 The server starts in **STDIO mode** — it reads/writes JSON-RPC over stdin/stdout
-and is meant to be launched by an MCP client (Claude Desktop, etc.), not run
-manually in a terminal.
- 
+and is meant to be launched by an MCP client (Claude Desktop, MCP Inspector, etc.),
+not run manually in a terminal.
+
+---
+
+## Test with MCP Inspector
+
+Requires [Node.js 22+](https://nodejs.org). After building the JAR, launch
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```bash
+npx @modelcontextprotocol/inspector java -jar target/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar
+```
+
+Or configure it manually in the Inspector UI (**Transport**: STDIO):
+
+| Field | Value |
+|---|---|
+| Command | `java` |
+| Arguments | `-jar /ABSOLUTE/PATH/TO/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar` |
+
+Open **http://localhost:6274**, click **Connect**, then use the **Tools** tab to
+invoke `find_books_by_topic`, `list_all_books`, or `find_books_deep` with a real
+`directoryPath` on your machine.
+
 ---
 
 ## Connect to Claude Desktop
@@ -71,7 +95,7 @@ Add this entry inside the `mcpServers` object:
       "command": "java",
       "args": [
         "-jar",
-        "/ABSOLUTE/PATH/TO/book-finder-mcp-1.0.0.jar"
+        "/ABSOLUTE/PATH/TO/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar"
       ]
     }
   }
@@ -79,10 +103,10 @@ Add this entry inside the `mcpServers` object:
 ```
 
 > **Windows tip:** use forward slashes or escaped back-slashes in the JSON path,
-> e.g. `"C:/Users/Alice/book-finder-mcp-1.0.0.jar"`.
+> e.g. `"C:/Users/Alice/spring-ai-personal-mcp-server-0.0.1-SNAPSHOT.jar"`.
 
 Restart Claude Desktop — the three tools will be available automatically.
- 
+
 ---
 
 ## Example prompts for client
@@ -94,7 +118,7 @@ Find all machine learning books in ~/Books
 ```
 
 ```
-List every book in /Users/alice/Documents/Library
+List every PDF in /Users/alice/Documents/Library
 ```
 
 ```
@@ -102,35 +126,36 @@ Deep scan C:\Users\Bob\eBooks for anything about Spring Boot
 ```
 
 ```
-Which books about concurrency are in ~/Documents? Search inside the files too.
+Which books about concurrency are in ~/Documents? Search inside the PDFs too.
 ```
- 
+
 ---
 
 ## Project structure
 
 ```
-book-finder-mcp/
+PersonalMCPSpringAI/
 ├── pom.xml
 └── src/
     └── main/
-        ├── java/com/example/bookfinder/
-        │   ├── BookFinderMcpApplication.java   ← Spring Boot entry point
+        ├── java/com/hp/mcpserver/
+        │   ├── PersonalMCPSpringAI.java      ← Spring Boot entry point
         │   ├── config/
-        │   │   └── McpToolConfig.java           ← Registers tools with Spring AI
-        │   ├── model/
-        │   │   ├── BookResult.java              ← Result record
-        │   │   └── SearchOptions.java           ← Search configuration
+        │   │   └── MCPServerConfig.java       ← Registers tools with Spring AI
+        │   ├── models/
+        │   │   ├── BookResult.java            ← Result record
+        │   │   └── SearchOptions.java         ← Search configuration
         │   ├── service/
-        │   │   ├── BookSearchService.java        ← Core search logic
-        │   │   ├── ContentExtractor.java         ← PDF / ePub / TXT text extraction
-        │   │   └── PathUtils.java               ← Cross-platform path resolution
-        │   └── tool/
-        │       └── BookFinderTool.java           ← @Tool annotated MCP tools
+        │   │   ├── BookSearchService.java     ← Core search logic
+        │   │   └── ContentExtractor.java      ← PDF text extraction
+        │   ├── tools/
+        │   │   └── BookFinderTool.java        ← @Tool annotated MCP tools
+        │   └── util/
+        │       └── PathUtils.java             ← Cross-platform path resolution
         └── resources/
-            └── application.properties
+            └── application.yaml
 ```
- 
+
 ---
 
 ## Switching to SSE / HTTP mode
@@ -145,21 +170,30 @@ If you want an HTTP-based MCP server (e.g. for remote access):
    </dependency>
    ```
 
-2. Update `application.properties`:
-   ```properties
-   spring.ai.mcp.server.transport=SSE
-   server.port=8080
-   # Re-enable logging for HTTP mode
-   logging.level.root=INFO
-   spring.main.banner-mode=console
+2. Update `application.yaml`:
+   ```yaml
+   spring:
+     ai:
+       mcp:
+         server:
+           transport: SSE
+     main:
+       web-application-type: reactive
+       banner-mode: console
+   server:
+     port: 8080
+   logging:
+     level:
+       root: INFO
    ```
 
 3. Point your MCP client at `http://localhost:8080/sse`.
+
 ---
 
 ## Notes
 
-- **PDF content search**: only the first 30 pages are read per file to keep memory usage bounded.
+- **PDF content search** (`find_books_deep`): only the first 5 pages are read per file to keep memory usage bounded.
 - **Encrypted PDFs**: files with non-empty passwords are skipped gracefully.
 - **Permissions**: directories that are not readable are silently skipped.
 - **Logging**: all logging is disabled in STDIO mode to prevent corrupting the JSON-RPC stream. Enable it only in SSE mode.
