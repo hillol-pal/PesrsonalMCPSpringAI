@@ -1,18 +1,17 @@
-server:
-  port: 8080
 spring:
   main:
     banner-mode: off
+    web-application-type: none
   application:
     name: mcp-server-personal
   ai:
     mcp:
       server:
-        transport: STDIO
+        stdio: true
         name: mcp-server-personal
         version: 1.0.0
-        description: A personal MCP server for handling AI agent requests. Various tools will be exposed
+        instructions: A personal MCP server for handling AI agent requests. Various tools will be exposed
 
 logging:
-  file:
-    name: ./spring-mcp-server.log
+  level:
+    root: OFF

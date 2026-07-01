@@ -1,8 +1,8 @@
 package com.hp.mcpserver.tools;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import com.hp.mcpserver.models.BookResult;
 import com.hp.mcpserver.models.SearchOptions;
 import com.hp.mcpserver.service.BookSearchService;
@@ -22,12 +22,13 @@ import java.util.stream.Collectors;
 public class BookFinderTool {
 
     private final BookSearchService searchService;
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
 
     public BookFinderTool(BookSearchService searchService) {
         this.searchService = searchService;
-        this.mapper = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT);
+        this.mapper = JsonMapper.builder()
+                .enable(SerializationFeature.INDENT_OUTPUT)
+                .build();
     }
 
 
@@ -49,8 +50,8 @@ public class BookFinderTool {
      */
     @Tool(name = "find_books_by_topic",
             description = """
-                  Search for book files (PDF,  TXT) related to a topic
-                  inside a directory. Checks file names.
+                  Search for PDF book files related to a topic inside a directory.
+                  Checks file names only (not PDF content).
                   Works on macOS, Linux and Windows paths.
                   Returns a JSON array of matched books with file name, path, format,
                   size and the reason they matched.
@@ -99,8 +100,8 @@ public class BookFinderTool {
      */
     @Tool(name = "list_all_books",
             description = """
-                  Lists every book file (PDF, ePub, MOBI, TXT …) found in a directory
-                  without any topic filter. Useful for exploring what is available.
+                  Lists every PDF book file found in a directory without any topic filter.
+                  Useful for exploring what is available.
                   Works on macOS, Linux and Windows paths.
                   """)
     public String listAllBooks(
@@ -157,7 +158,7 @@ public class BookFinderTool {
      * Performs a deep, content-aware search for books related to a topic.
      *
      * <p>Unlike {@link #findBooksByTopic}, this tool also extracts and searches
-     * the full text of PDF files (up to 5 pages) and plain-text files.
+     * the full text of PDF files (up to 5 pages).
      * It is slower but finds matches that are not visible in the file name.
      *
      * @param directoryPath path to the directory.
@@ -168,9 +169,9 @@ public class BookFinderTool {
      */
     @Tool(name = "find_books_deep",
             description = """
-                  Deep, content-aware search that reads the text of PDF and TXT files
-                  (up to 5 pages per PDF) in addition to file names and ePub metadata.
-                  Slower than find_books_by_topic but finds matches inside file content.
+                  Deep, content-aware search that reads PDF text (up to 5 pages per file)
+                  in addition to file names.
+                  Slower than find_books_by_topic but finds matches inside PDF content.
                   Returns relevance scores so you can rank results.
                   Works on macOS, Linux and Windows paths.
                   """)
@@ -241,7 +242,7 @@ public class BookFinderTool {
     private String toJson(Object obj) {
         try {
             return mapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return "{\"error\":\"Serialisation failure: " + e.getMessage() + "\"}";
         }
     }

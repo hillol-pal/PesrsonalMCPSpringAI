@@ -16,9 +16,7 @@ import java.util.*;
 public class BookSearchService {
 
     /** Extensions treated as "book" files. */
-    public static final Set<String> BOOK_EXTENSIONS = Set.of(
-            "pdf","txt", "md"
-    );
+    public static final Set<String> BOOK_EXTENSIONS = Set.of("pdf");
 
     private final ContentExtractor extractor;
 
